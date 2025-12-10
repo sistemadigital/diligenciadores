@@ -446,6 +446,7 @@
               <th>Teléfono</th>
               <th>Email</th>
               <th>Tipo Ley</th>
+              <th>Expte donde figura</th>
               <th>Acciones</th>
             </tr>
           </thead>
@@ -503,6 +504,11 @@
         <div class="form-grupo">
           <label>Email</label>
           <input type="email" id="email" placeholder="Correo electrónico">
+        </div>
+        
+        <div class="form-grupo">
+          <label style="font-weight: bold;">Expte donde figura</label>
+          <input type="text" id="expteDondeFigura" placeholder="Número de expediente">
         </div>
         
         <div class="form-grupo">
@@ -573,7 +579,9 @@ const provinciasArgentinas = [
   "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", 
   "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", 
   "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", 
-  "Santiago del Estero", "Tierra del Fuego", "Tucumán"
+  "Santiago del Estero", "Tierra del Fuego", "Tucumán",
+  "AMBA (Área Metropolitana de Buenos Aires)",
+  "CABA (Ciudad Autónoma de Buenos Aires)"
 ];
 
 // Event Listeners
@@ -704,6 +712,7 @@ function abrirModalRegistro(diligenciador = null) {
     document.getElementById('localidad').value = diligenciador.localidad;
     document.getElementById('telefono').value = diligenciador.telefono;
     document.getElementById('email').value = diligenciador.email;
+    document.getElementById('expteDondeFigura').value = diligenciador.expteDondeFigura || '';
     
     // Establecer tipo ley
     const tipoLey = diligenciador.tipoLey;
@@ -735,6 +744,7 @@ async function guardarRegistro() {
   const localidad = document.getElementById('localidad').value;
   const telefono = document.getElementById('telefono').value;
   const email = document.getElementById('email').value;
+  const expteDondeFigura = document.getElementById('expteDondeFigura').value;
   const tipoLey = document.getElementById('tipoLey').value;
   
   // Validación básica - solo provincia es requerida
@@ -756,6 +766,7 @@ async function guardarRegistro() {
     localidad: localidad || '',
     telefono: telefono || '',
     email: email || '',
+    expteDondeFigura: expteDondeFigura || '',
     tipoLey: tipoLey || ''
   };
   
@@ -831,7 +842,8 @@ function aplicarFiltros() {
         (d.localidad && d.localidad.toLowerCase().includes(texto)) ||
         (d.email && d.email.toLowerCase().includes(texto)) ||
         (d.domicilio && d.domicilio.toLowerCase().includes(texto)) ||
-        (d.telefono && d.telefono.toLowerCase().includes(texto))) &&
+        (d.telefono && d.telefono.toLowerCase().includes(texto)) ||
+        (d.expteDondeFigura && d.expteDondeFigura.toLowerCase().includes(texto))) &&
       (provincia === '' || d.provincia === provincia) &&
       (tipoLey === '' || d.tipoLey === tipoLey)
     );
@@ -875,7 +887,8 @@ function aplicarFiltrosProvincia() {
         (d.localidad && d.localidad.toLowerCase().includes(texto)) ||
         (d.domicilio && d.domicilio.toLowerCase().includes(texto)) ||
         (d.telefono && d.telefono.toLowerCase().includes(texto)) ||
-        (d.email && d.email.toLowerCase().includes(texto))) &&
+        (d.email && d.email.toLowerCase().includes(texto)) ||
+        (d.expteDondeFigura && d.expteDondeFigura.toLowerCase().includes(texto))) &&
       (tipoLey === '' || d.tipoLey === tipoLey)
     );
   });
@@ -890,7 +903,7 @@ function renderTablaProvincia() {
   const datosPagina = diligenciadoresFiltrados.slice(inicio, fin);
   
   if(datosPagina.length === 0) {
-    tablaDiligenciadoresCuerpo.innerHTML = '<tr><td colspan="7" style="text-align:center;">No hay diligenciadores registrados para esta provincia.</td></tr>';
+    tablaDiligenciadoresCuerpo.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay diligenciadores registrados para esta provincia.</td></tr>';
   } else {
     tablaDiligenciadoresCuerpo.innerHTML = datosPagina.map(d => `
       <tr>
@@ -904,6 +917,7 @@ function renderTablaProvincia() {
             ${d.tipoLey || ''}
           </span>
         </td>
+        <td>${d.expteDondeFigura || ''}</td>
         <td class="acciones">
           <button class="btn-editar" onclick="editarRegistro('${d.id}')">Editar</button>
           <button class="btn-eliminar" onclick="eliminarRegistro('${d.id}')">Eliminar</button>
