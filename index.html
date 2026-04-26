@@ -367,7 +367,28 @@
     .badge-cedula{
         background-color:#9b59b6;
     }
-    
+
+    /* ESTILO ESPECÍFICO PARA MODAL DE MAPA FULLSCREEN */
+    #modalMapa {
+        padding: 0; /* Elimina el padding del overlay */
+    }
+    #modalMapa .modal-contenido {
+        width: 100vw;
+        height: 100vh;
+        max-width: none;
+        max-height: none;
+        border-radius: 0;
+        padding: 0;
+    }
+    #modalMapa .modal-header {
+        padding: 10px 20px;
+        margin-bottom: 0;
+        background: #fff;
+    }
+    #modalMapa .modal-body {
+        padding: 0;
+    }
+
     @media print {
         body * { visibility: hidden; }
         #admin, #admin * { visibility: visible; }
@@ -432,6 +453,7 @@
     <div>
       <button class="btn" id="btnNuevo">Nuevo Diligenciador</button>
       <button class="btn" id="btnImprimir">Imprimir Listado</button>
+      <button class="btn" id="btnMapa" style="background-color: #1a2b4c;">Mapa de Ubicación</button>
     </div>
   </div>
 
@@ -463,7 +485,6 @@
   <div id="provinciasContainer" class="provincias-grid"></div>
 </section>
 
-<!-- Modal con pestañas: REQUISITOS BUS FEDERAL + DILIGENCIADORES -->
 <div class="modal" id="modalProvincia">
   <div class="modal-contenido">
     <div class="modal-header">
@@ -477,12 +498,10 @@
     </div>
 
     <div class="modal-body">
-      <!-- Contenido de la pestaña Requisitos -->
       <div id="tabRequisitos" class="tab-pane active">
         <div id="requisitosContent"></div>
       </div>
       
-      <!-- Contenido de la pestaña Diligenciadores -->
       <div id="tabDiligenciadores" class="tab-pane">
         <div class="filtros" style="margin-top:0;padding:10px;">
           <div class="filtro-grupo">
@@ -528,7 +547,6 @@
   </div>
 </div>
 
-<!-- Modal para registro/edición de diligenciador -->
 <div class="modal" id="modalRegistro">
   <div class="modal-contenido">
     <div class="modal-header">
@@ -540,41 +558,32 @@
       <form id="formRegistro">
         <div class="form-grupo">
           <label>Provincia</label>
-          <select id="provincia">
-            <option value="">Seleccione una provincia</option>
-          </select>
+          <select id="provincia"></select>
         </div>
-        
         <div class="form-grupo">
           <label>Diligenciador</label>
           <input type="text" id="diligenciador" placeholder="Nombre del diligenciador">
         </div>
-        
         <div class="form-grupo">
           <label>Domicilio</label>
           <input type="text" id="domicilio" placeholder="Dirección completa">
         </div>
-        
         <div class="form-grupo">
           <label>Localidad</label>
           <input type="text" id="localidad" placeholder="Localidad">
         </div>
-        
         <div class="form-grupo">
           <label>Teléfono</label>
           <input type="tel" id="telefono" placeholder="Número de contacto">
         </div>
-        
         <div class="form-grupo">
           <label>Email</label>
           <input type="email" id="email" placeholder="Correo electrónico">
         </div>
-        
         <div class="form-grupo">
           <label style="font-weight: bold;">Expte donde figura</label>
           <input type="text" id="expteDondeFigura" placeholder="Número de expediente">
         </div>
-        
         <div class="form-grupo">
           <label>Tipo Ley</label>
           <div class="tipo-ley-opciones" id="grupoTipoLey">
@@ -585,10 +594,21 @@
         </div>
       </form>
     </div>
-    
     <div class="modal-footer">
       <button type="button" class="btn" id="btnCancelarRegistro">Cancelar</button>
       <button type="button" class="btn" id="btnGuardarRegistro">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="modalMapa">
+  <div class="modal-contenido">
+    <div class="modal-header">
+      <h2>Mapa de Ubicación</h2>
+      <button class="modal-cerrar" id="modalMapaCerrar">&times;</button>
+    </div>
+    <div class="modal-body" style="overflow: hidden;">
+      <iframe id="iframeMapa" src="" style="width: 100%; height: 100%; border: none;"></iframe>
     </div>
   </div>
 </div>
@@ -598,13 +618,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
 import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  getDocs, 
-  updateDoc,
-  deleteDoc,
-  doc 
+  getFirestore, collection, addDoc, getDocs, updateDoc, deleteDoc, doc 
 } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -619,7 +633,6 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Variables globales
 let diligenciadores = [];
 let diligenciadoresFiltrados = [];
 let provinciaActual = "";
@@ -627,27 +640,12 @@ let paginaActual = 1;
 let editandoId = null;
 const registrosPorPagina = 5;
 
-// Elementos DOM
-const modalProvincia = document.getElementById('modalProvincia');
-const modalRegistro = document.getElementById('modalRegistro');
-const provinciasContainer = document.getElementById('provinciasContainer');
-const tablaDiligenciadoresCuerpo = document.getElementById('tablaDiligenciadoresCuerpo');
-const paginacionProvincia = document.getElementById('paginacionProvincia');
-const alerta = document.getElementById('alerta');
-const contadorRegistros = document.getElementById('contadorRegistros');
-
-// Lista de provincias argentinas - FIJA
 const provinciasArgentinas = [
-  "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", 
-  "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", 
-  "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", 
-  "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", 
-  "Santiago del Estero", "Tierra del Fuego", "Tucumán",
-  "AMBA (Área Metropolitana de Buenos Aires)",
-  "CABA (Ciudad Autónoma de Buenos Aires)"
+  "Buenos Aires", "Catamarca", "Chaco", "Chubut", "Córdoba", "Corrientes", "Entre Ríos", "Formosa", "Jujuy", "La Pampa", 
+  "La Rioja", "Mendoza", "Misiones", "Neuquén", "Río Negro", "Salta", "San Juan", "San Luis", "Santa Cruz", "Santa Fe", 
+  "Santiago del Estero", "Tierra del Fuego", "Tucumán", "AMBA (Área Metropolitana de Buenos Aires)", "CABA (Ciudad Autónoma de Buenos Aires)"
 ];
 
-// ==================== REQUISITOS BUS FEDERAL POR PROVINCIA ====================
 const guiaRequisitos = {
   "Buenos Aires": { maxPaginas: "No específico, pero firma digital obligatoria", datoClave: "Sistema Augusta / 20 departamentos judiciales. Adjuntos QR." },
   "CABA (Ciudad Autónoma de Buenos Aires)": { maxPaginas: "Máx. 2 hojas (4 páginas) para el cuerpo principal", datoClave: "Cédulas y mandamientos Ley 22.172 – NO oficios comunes. Firma digital + QR." },
@@ -676,249 +674,117 @@ const guiaRequisitos = {
   "AMBA (Área Metropolitana de Buenos Aires)": { maxPaginas: "Similar a PBA: máx recomendado 2 hojas", datoClave: "Ver guías de tribunales federales." }
 };
 
-function getRequisitosHTML(provincia) {
-  const data = guiaRequisitos[provincia] || guiaRequisitos["Buenos Aires"];
-  const limite = data.maxPaginas;
-  return `
-    <div class="req-card">
-      <strong>📄 Límite de hojas/páginas para el PDF según BUS Federal:</strong>
-      <div class="pages-highlight">✂️ ${limite}</div>
-      <ul class="req-list">
-        <li>✅ Formato digital con firma electrónica/digital obligatoria (Ley 22.172).</li>
-        <li>✅ Adjuntos mediante enlaces o códigos QR – evitar impresión excesiva.</li>
-        <li>✅ Organismo receptor: depende del fuero / mesa de entradas provincial.</li>
-        <li>💰 Tasas: según arancel local (verificar en guía oficial).</li>
-        <li>📌 ${data.datoClave}</li>
-      </ul>
-      <p><em>🔗 Fuente: <a href="https://www.bus-justicia.org.ar/index.php/bus-federal/guias-tramite" target="_blank">Guías BUS Federal</a></em></p>
-    </div>
-  `;
-}
-
-// ==================== DATOS DE EJEMPLO ====================
-const registrosDemo = [
-  { provincia: "Buenos Aires", diligenciador: "Martín López", domicilio: "Av. Corrientes 1234", localidad: "La Plata", telefono: "221-5551234", email: "mlopez@ejemplo.com", expteDondeFigura: "EXP-12345", tipoLey: "Oficio Ley" },
-  { provincia: "Buenos Aires", diligenciador: "Carolina Fernández", domicilio: "San Martín 890", localidad: "Mar del Plata", telefono: "223-5555678", email: "cfernandez@ejemplo.com", expteDondeFigura: "EXP-54321", tipoLey: "Cédula Ley" },
-  { provincia: "CABA (Ciudad Autónoma de Buenos Aires)", diligenciador: "Ana Rodríguez", domicilio: "Av. Santa Fe 2001", localidad: "CABA", telefono: "11-5556789", email: "arodriguez@ejemplo.com", expteDondeFigura: "EXP-11111", tipoLey: "Cédula Ley" },
-  { provincia: "Córdoba", diligenciador: "María Laura Suárez", domicilio: "Av. Vélez Sarsfield 321", localidad: "Córdoba", telefono: "351-5557890", email: "mlsuarez@ejemplo.com", expteDondeFigura: "EXP-33333", tipoLey: "Oficio Ley" },
-  { provincia: "Mendoza", diligenciador: "Eugenia Martínez", domicilio: "San Martín 987", localidad: "Mendoza", telefono: "261-5553456", email: "emartinez@ejemplo.com", expteDondeFigura: "EXP-55555", tipoLey: "Cédula Ley" },
-  { provincia: "Santa Fe", diligenciador: "Federico Rossi", domicilio: "Bv. Gálvez 1234", localidad: "Rosario", telefono: "341-5556789", email: "frossi@ejemplo.com", expteDondeFigura: "EXP-66666", tipoLey: "Oficio Ley" },
-  { provincia: "Salta", diligenciador: "Patricia Luna", domicilio: "Av. Belgrano 777", localidad: "Salta", telefono: "387-5559876", email: "pluna@ejemplo.com", expteDondeFigura: "EXP-77777", tipoLey: "Cédula Ley" }
-];
-
-// ==================== FUNCIONES PRINCIPALES ====================
 function cargarProvincias() {
-  provinciasContainer.innerHTML = '';
-  const filtroProvinciaSelect = document.getElementById('filtroProvincia');
-  const provinciaSelect = document.getElementById('provincia');
-  filtroProvinciaSelect.innerHTML = '<option value="">Todas las provincias</option>';
-  provinciaSelect.innerHTML = '<option value="">Seleccione una provincia</option>';
+  const container = document.getElementById('provinciasContainer');
+  const filtroProv = document.getElementById('filtroProvincia');
+  const modalProv = document.getElementById('provincia');
+  container.innerHTML = '';
+  filtroProv.innerHTML = '<option value="">Todas las provincias</option>';
+  modalProv.innerHTML = '<option value="">Seleccione una provincia</option>';
   
-  provinciasArgentinas.forEach(provincia => {
+  provinciasArgentinas.forEach(prov => {
     const card = document.createElement('div');
     card.className = 'provincia-card';
-    card.dataset.provincia = provincia;
-    const count = diligenciadores.filter(d => d.provincia === provincia).length;
-    card.innerHTML = `<h3>${provincia}</h3><p>${count} diligenciador(es) registrado(s)</p>`;
-    card.onclick = () => abrirModalProvincia(provincia);
-    provinciasContainer.appendChild(card);
-    
-    const opcionFiltro = document.createElement('option');
-    opcionFiltro.value = provincia;
-    opcionFiltro.textContent = provincia;
-    filtroProvinciaSelect.appendChild(opcionFiltro);
-    
-    const opcionProvincia = document.createElement('option');
-    opcionProvincia.value = provincia;
-    opcionProvincia.textContent = provincia;
-    provinciaSelect.appendChild(opcionProvincia);
+    const count = diligenciadores.filter(d => d.provincia === prov).length;
+    card.innerHTML = `<h3>${prov}</h3><p>${count} diligenciador(es)</p>`;
+    card.onclick = () => abrirModalProvincia(prov);
+    container.appendChild(card);
+    filtroProv.innerHTML += `<option value="${prov}">${prov}</option>`;
+    modalProv.innerHTML += `<option value="${prov}">${prov}</option>`;
   });
-  contadorRegistros.textContent = `Total de diligenciadores: ${diligenciadores.length}`;
-}
-
-async function cargarDatosDemo() {
-  for (const demo of registrosDemo) {
-    await addDoc(collection(db, 'diligenciadores'), demo);
-  }
+  document.getElementById('contadorRegistros').textContent = `Total: ${diligenciadores.length}`;
 }
 
 async function cargarDatos() {
   try {
-    const querySnapshot = await getDocs(collection(db, 'diligenciadores'));
-    let docs = querySnapshot.docs.map(d => ({id: d.id, ...d.data()}));
-    if (docs.length === 0) {
-      await cargarDatosDemo();
-      const nuevoSnapshot = await getDocs(collection(db, 'diligenciadores'));
-      docs = nuevoSnapshot.docs.map(d => ({id: d.id, ...d.data()}));
-    }
-    diligenciadores = docs.sort((a,b) => (a.provincia||'').localeCompare(b.provincia||'') || (a.diligenciador||'').localeCompare(b.diligenciador||''));
+    const snapshot = await getDocs(collection(db, 'diligenciadores'));
+    diligenciadores = snapshot.docs.map(d => ({id: d.id, ...d.data()}));
     cargarProvincias();
     if (provinciaActual) aplicarFiltrosProvincia();
-  } catch(error) {
-    mostrarAlerta('Error al cargar datos: ' + error.message, '#e74c3c');
-  }
+  } catch(e) { console.error(e); }
 }
 
-function abrirModalProvincia(provincia) {
-  provinciaActual = provincia;
-  document.getElementById('provinciaNombre').innerHTML = provincia;
-  document.getElementById('requisitosContent').innerHTML = getRequisitosHTML(provincia);
-  modalProvincia.classList.add('activa');
-  document.getElementById('filtroProvinciaTexto').value = "";
-  document.getElementById('filtroProvinciaTipoLey').value = "";
+function abrirModalProvincia(prov) {
+  provinciaActual = prov;
+  document.getElementById('provinciaNombre').textContent = prov;
+  const data = guiaRequisitos[prov] || guiaRequisitos["Buenos Aires"];
+  document.getElementById('requisitosContent').innerHTML = `
+    <div class="req-card">
+      <strong>📄 Límite de hojas/páginas PDF:</strong>
+      <div class="pages-highlight">✂️ ${data.maxPaginas}</div>
+      <ul class="req-list">
+        <li>✅ Firma digital obligatoria.</li>
+        <li>📌 ${data.datoClave}</li>
+      </ul>
+    </div>`;
+  document.getElementById('modalProvincia').classList.add('activa');
   aplicarFiltrosProvincia();
-  // Activar pestaña de requisitos por defecto
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-  document.querySelector('.tab-btn[data-tab="requisitos"]').classList.add('active');
-  document.getElementById('tabRequisitos').classList.add('active');
-  document.getElementById('tabDiligenciadores').classList.remove('active');
-}
-
-function cerrarModalProvincia() {
-  modalProvincia.classList.remove('activa');
-  provinciaActual = "";
-}
-
-function abrirModalRegistro(diligenciador = null) {
-  modalRegistro.classList.add('activa');
-  document.getElementById('formRegistro').reset();
-  document.querySelectorAll('.tipo-ley-btn').forEach(b => b.classList.remove('activa'));
-  if (diligenciador) {
-    document.getElementById('modalRegistroTitulo').textContent = 'Editar Diligenciador';
-    document.getElementById('provincia').value = diligenciador.provincia;
-    document.getElementById('diligenciador').value = diligenciador.diligenciador;
-    document.getElementById('domicilio').value = diligenciador.domicilio;
-    document.getElementById('localidad').value = diligenciador.localidad;
-    document.getElementById('telefono').value = diligenciador.telefono;
-    document.getElementById('email').value = diligenciador.email;
-    document.getElementById('expteDondeFigura').value = diligenciador.expteDondeFigura || '';
-    const tipo = diligenciador.tipoLey;
-    const btn = document.querySelector(`.tipo-ley-btn[data-tipo="${tipo}"]`);
-    if (btn) { btn.classList.add('activa'); document.getElementById('tipoLey').value = tipo; }
-    editandoId = diligenciador.id;
-  } else {
-    document.getElementById('modalRegistroTitulo').textContent = 'Nuevo Diligenciador';
-    editandoId = null;
-  }
-}
-
-function cerrarModalRegistro() {
-  modalRegistro.classList.remove('activa');
-  editandoId = null;
 }
 
 async function guardarRegistro() {
-  const provincia = document.getElementById('provincia').value;
-  const tipoLey = document.getElementById('tipoLey').value;
-  if (!provincia || !tipoLey) { mostrarAlerta('Provincia y Tipo Ley son obligatorios', '#e74c3c'); return; }
   const data = {
-    provincia, tipoLey,
+    provincia: document.getElementById('provincia').value,
     diligenciador: document.getElementById('diligenciador').value,
     domicilio: document.getElementById('domicilio').value,
     localidad: document.getElementById('localidad').value,
     telefono: document.getElementById('telefono').value,
     email: document.getElementById('email').value,
-    expteDondeFigura: document.getElementById('expteDondeFigura').value
+    expteDondeFigura: document.getElementById('expteDondeFigura').value,
+    tipoLey: document.getElementById('tipoLey').value
   };
-  try {
-    if (editandoId) await updateDoc(doc(db, 'diligenciadores', editandoId), data);
-    else await addDoc(collection(db, 'diligenciadores'), data);
-    mostrarAlerta(editandoId ? 'Actualizado' : 'Guardado');
-    cerrarModalRegistro();
-    await cargarDatos();
-    if (provinciaActual) aplicarFiltrosProvincia();
-  } catch(error) { mostrarAlerta('Error: '+error.message, '#e74c3c'); }
-}
-
-window.editarRegistro = function(id) {
-  const d = diligenciadores.find(d => d.id === id);
-  if (d) abrirModalRegistro(d);
-};
-
-window.eliminarRegistro = async function(id) {
-  if (confirm('¿Eliminar?')) {
-    await deleteDoc(doc(db, 'diligenciadores', id));
-    mostrarAlerta('Eliminado');
-    await cargarDatos();
-    if (provinciaActual) aplicarFiltrosProvincia();
-  }
-};
-
-function aplicarFiltros() {
-  const texto = document.getElementById('filtroTexto').value.toLowerCase();
-  const provincia = document.getElementById('filtroProvincia').value;
-  const tipoLey = document.getElementById('filtroTipoLey').value;
-  const filtrados = diligenciadores.filter(d => 
-    (!texto || (d.diligenciador?.toLowerCase().includes(texto) || d.localidad?.toLowerCase().includes(texto) || d.email?.toLowerCase().includes(texto))) &&
-    (!provincia || d.provincia === provincia) &&
-    (!tipoLey || d.tipoLey === tipoLey)
-  );
-  const tarjetas = document.querySelectorAll('.provincia-card');
-  tarjetas.forEach(card => {
-    const prov = card.dataset.provincia;
-    const count = filtrados.filter(d => d.provincia === prov).length;
-    card.querySelector('p').textContent = `${count} diligenciador(es) registrado(s)`;
-    card.style.display = (!provincia || provincia === prov) ? 'block' : 'none';
-  });
-  contadorRegistros.textContent = `Total de diligenciadores: ${filtrados.length}`;
+  if (!data.provincia || !data.tipoLey) return alert('Complete los campos');
+  if (editandoId) await updateDoc(doc(db, 'diligenciadores', editandoId), data);
+  else await addDoc(collection(db, 'diligenciadores'), data);
+  document.getElementById('modalRegistro').classList.remove('activa');
+  await cargarDatos();
 }
 
 function aplicarFiltrosProvincia() {
   const texto = document.getElementById('filtroProvinciaTexto').value.toLowerCase();
-  const tipoLey = document.getElementById('filtroProvinciaTipoLey').value;
+  const tipo = document.getElementById('filtroProvinciaTipoLey').value;
   diligenciadoresFiltrados = diligenciadores.filter(d => 
     d.provincia === provinciaActual &&
-    (!texto || (d.diligenciador?.toLowerCase().includes(texto) || d.localidad?.toLowerCase().includes(texto))) &&
-    (!tipoLey || d.tipoLey === tipoLey)
+    (!texto || d.diligenciador?.toLowerCase().includes(texto)) &&
+    (!tipo || d.tipoLey === tipo)
   );
   paginaActual = 1;
-  renderTablaProvincia();
+  renderTabla();
 }
 
-function renderTablaProvincia() {
+function renderTabla() {
   const inicio = (paginaActual-1)*registrosPorPagina;
   const datos = diligenciadoresFiltrados.slice(inicio, inicio+registrosPorPagina);
-  tablaDiligenciadoresCuerpo.innerHTML = datos.length ? datos.map(d => `
+  document.getElementById('tablaDiligenciadoresCuerpo').innerHTML = datos.map(d => `
     <tr>
-      <td>${d.diligenciador || ''}</td><td>${d.domicilio || ''}</td><td>${d.localidad || ''}</td>
-      <td>${d.telefono || ''}</td><td>${d.email || ''}</td>
-      <td><span class="badge-tipo ${d.tipoLey === 'Oficio Ley' ? 'badge-oficio' : 'badge-cedula'}">${d.tipoLey || ''}</span></td>
-      <td>${d.expteDondeFigura || ''}</td>
-      <td class="acciones"><button class="btn-editar" onclick="editarRegistro('${d.id}')">Editar</button> <button class="btn-eliminar" onclick="eliminarRegistro('${d.id}')">Eliminar</button></td>
-    </tr>
-  `).join('') : '<tr><td colspan="8">No hay diligenciadores en esta provincia</td></tr>';
-  const totalPag = Math.ceil(diligenciadoresFiltrados.length/registrosPorPagina);
-  paginacionProvincia.innerHTML = '';
-  for(let i=1;i<=totalPag;i++){
-    const span = document.createElement('span');
-    span.textContent = i;
-    span.className = 'pagina' + (i===paginaActual ? ' activa' : '');
-    span.onclick = () => { paginaActual=i; renderTablaProvincia(); };
-    paginacionProvincia.appendChild(span);
-  }
+      <td>${d.diligenciador}</td><td>${d.domicilio}</td><td>${d.localidad}</td>
+      <td>${d.telefono}</td><td>${d.email}</td>
+      <td><span class="badge-tipo ${d.tipoLey==='Oficio Ley'?'badge-oficio':'badge-cedula'}">${d.tipoLey}</span></td>
+      <td>${d.expteDondeFigura||''}</td>
+      <td class="acciones"><button class="btn-editar" onclick="editar('${d.id}')">E</button></td>
+    </tr>`).join('');
 }
 
-function mostrarAlerta(msg, color='#2ecc71') {
-  alerta.textContent = msg;
-  alerta.style.backgroundColor = color;
-  alerta.style.display = 'block';
-  setTimeout(()=> alerta.style.display = 'none', 3000);
-}
+// Eventos Mapa
+document.getElementById('btnMapa').onclick = () => {
+  document.getElementById('iframeMapa').src = "https://sistemadigital.github.io/ingreso-sistema/mapa-argentina.html";
+  document.getElementById('modalMapa').classList.add('activa');
+};
+document.getElementById('modalMapaCerrar').onclick = () => {
+  document.getElementById('modalMapa').classList.remove('activa');
+  document.getElementById('iframeMapa').src = "";
+};
 
-// Eventos y pestañas
-document.getElementById('btnNuevo').onclick = () => abrirModalRegistro();
-document.getElementById('modalRegistroCerrar').onclick = cerrarModalRegistro;
-document.getElementById('btnCancelarRegistro').onclick = cerrarModalRegistro;
+// Resto de eventos
+document.getElementById('btnNuevo').onclick = () => {
+  editandoId = null;
+  document.getElementById('formRegistro').reset();
+  document.getElementById('modalRegistro').classList.add('activa');
+};
 document.getElementById('btnGuardarRegistro').onclick = guardarRegistro;
-document.getElementById('btnImprimir').onclick = () => window.print();
-document.getElementById('modalProvinciaCerrar').onclick = cerrarModalProvincia;
-document.getElementById('btnCerrarProvincia').onclick = cerrarModalProvincia;
-document.getElementById('btnImprimirProvincia').onclick = () => window.print();
-document.getElementById('filtroTexto').addEventListener('input', aplicarFiltros);
-document.getElementById('filtroProvincia').addEventListener('change', aplicarFiltros);
-document.getElementById('filtroTipoLey').addEventListener('change', aplicarFiltros);
-document.getElementById('filtroProvinciaTexto').addEventListener('input', aplicarFiltrosProvincia);
-document.getElementById('filtroProvinciaTipoLey').addEventListener('change', aplicarFiltrosProvincia);
+document.getElementById('modalRegistroCerrar').onclick = () => document.getElementById('modalRegistro').classList.remove('activa');
+document.getElementById('modalProvinciaCerrar').onclick = () => document.getElementById('modalProvincia').classList.remove('activa');
+document.getElementById('filtroProvinciaTexto').oninput = aplicarFiltrosProvincia;
+document.getElementById('filtroProvinciaTipoLey').onchange = aplicarFiltrosProvincia;
 
 document.querySelectorAll('.tipo-ley-btn').forEach(btn => {
   btn.onclick = () => {
@@ -928,18 +794,16 @@ document.querySelectorAll('.tipo-ley-btn').forEach(btn => {
   };
 });
 
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    const tab = btn.dataset.tab;
-    document.getElementById('tabRequisitos').classList.toggle('active', tab==='requisitos');
-    document.getElementById('tabDiligenciadores').classList.toggle('active', tab==='diligenciadores');
-  };
-});
+window.editar = (id) => {
+  const d = diligenciadores.find(x => x.id === id);
+  editandoId = id;
+  document.getElementById('provincia').value = d.provincia;
+  document.getElementById('diligenciador').value = d.diligenciador;
+  document.getElementById('tipoLey').value = d.tipoLey;
+  document.getElementById('modalRegistro').classList.add('activa');
+};
 
-cargarProvincias();  // muestra las tarjetas sin conteo aún
-cargarDatos();       // carga los datos reales y actualiza
+cargarDatos();
 </script>
 </body>
 </html>
