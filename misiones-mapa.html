@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa judicial - Misiones</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- TopoJSON client -->
+    <script src="https://unpkg.com/topojson-client@3"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .map-container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .map-header {
+            background: linear-gradient(135deg, #1a3a5c, #2a5f8f);
+            color: white;
+            padding: 18px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .map-header h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .map-header h1 span {
+            font-weight: 300;
+            opacity: 0.8;
+            font-size: 1.2rem;
+        }
+
+        /* Buscador */
+        .search-container {
+            display: flex;
+            gap: 8px;
+            position: relative;
+        }
+
+        .search-container input {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: none;
+            outline: none;
+            width: 250px;
+            font-size: 0.95rem;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .search-container button {
+            background: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .search-container button:hover {
+            background: #45a049;
+        }
+
+        #search-result {
+            position: absolute;
+            top: 110%;
+            left: 0;
+            right: 0;
+            background: white;
+            color: #333;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 0.9rem;
+            display: none;
+            z-index: 1000;
+        }
+
+        #map {
+            width: 100%;
+            height: 650px;
+            background: #e5e9f0;
+            cursor: default;
+        }
+
+        .map-footer {
+            padding: 14px 28px;
+            background: #f8f9fc;
+            border-top: 1px solid #e9ecf0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        .map-footer a {
+            color: #2a5f8f;
+            text-decoration: none;
+        }
+
+        .map-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Popup personalizado */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: rgba(0, 0, 0, 0.9) !important;
+            color: white !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .custom-popup .leaflet-popup-tip {
+            background: rgba(0, 0, 0, 0.9) !important;
+        }
+        .custom-popup .leaflet-popup-content {
+            margin: 14px 16px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            min-width: 200px;
+        }
+        .custom-popup strong {
+            font-size: 1.1rem;
+            display: block;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+        .custom-popup .circ {
+            color: #ffd54f;
+            font-weight: 600;
+        }
+        .custom-popup .quinta {
+            color: #ff8a80;
+            font-weight: 500;
+        }
+
+        /* Leyenda personalizada */
+        .legend {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            line-height: 1.6;
+            font-size: 0.9rem;
+            min-width: 180px;
+        }
+
+        .legend h4 {
+            margin: 0 0 6px 0;
+            font-size: 0.95rem;
+            color: #1a3a5c;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 0;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+
+        .legend-color.circle {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .map-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .search-container {
+                width: 100%;
+            }
+            .search-container input {
+                flex-grow: 1;
+            }
+            #map {
+                height: 450px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="map-container">
+        <div class="map-header">
+            <h1>⚖️ Misiones <span>· Circunscripciones</span></h1>
+            
+            <div class="search-container">
+                <input type="text" id="input-busqueda" placeholder="Buscar ciudad o depto...">
+                <button id="btn-buscar">Buscar</button>
+                <div id="search-result"></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="map-footer">
+            <span>Datos: <a href="https://github.com/mgaitan/departamentos_argentina" target="_blank">departamentos_argentina</a> · IGN</span>
+            <span>Mapa: <a href="https://leafletjs.com" target="_blank">Leaflet</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a></span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            // Variables globales para control del mapa
+            let boundsGenerales = null;
+            const capasPorDepartamento = {};
+
+            function normalizarNombre(nombre) {
+                if (!nombre) return '';
+                let n = nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+                n = n.replace(/general/g, "gral"); 
+                return n.replace(/[^a-z0-9]/g, ""); 
+            }
+
+            // Datos de circunscripciones por Departamento actualizados
+            const CIRCUNSCRIPCIONES = {
+                'capital': 1, 'candelaria': 1, 'apostoles': 1, 'concepcion': 1,
+                'obera': 2, '25demayo': 2, 'cainguas': 2, 'leandronalem': 2, 'sanjavier': 2,
+                'montecarlo': 3, 'eldorado': 3, 'gralmanuelbelgrano': 3, 'iguazu': 3,
+                'libertadorgralsanmartin': 4, 'sanignacio': 4,
+                'guarani': 5, 'sanpedro': 5 
+            };
+
+            const DEPARTAMENTOS_QUINTA = ['gralmanuelbelgrano', 'cainguas'];
+
+            // Base de datos expandida con todos los municipios y ciudades principales de Misiones
+            const CIUDADES_DB = {
+                // 1ª Circunscripción
+                'posadas': { circ: 1, deptoNorm: 'capital' },
+                'garupa': { circ: 1, deptoNorm: 'capital' },
+                'fachinal': { circ: 1, deptoNorm: 'capital' },
+                'candelaria': { circ: 1, deptoNorm: 'candelaria' },
+                'santa ana': { circ: 1, deptoNorm: 'candelaria' },
+                'loreto': { circ: 1, deptoNorm: 'candelaria' },
+                'profundidad': { circ: 1, deptoNorm: 'candelaria' },
+                'cerro cora': { circ: 1, deptoNorm: 'candelaria' },
+                'apostoles': { circ: 1, deptoNorm: 'apostoles' },
+                'azara': { circ: 1, deptoNorm: 'apostoles' },
+                'tres capones': { circ: 1, deptoNorm: 'apostoles' },
+                'san jose': { circ: 1, deptoNorm: 'apostoles' },
+                'concepcion de la sierra': { circ: 1, deptoNorm: 'concepcion' },
+                'santa maria': { circ: 1, deptoNorm: 'concepcion' },
+
+                // 2ª Circunscripción
+                'obera': { circ: 2, deptoNorm: 'obera' },
+                'san martin': { circ: 2, deptoNorm: 'obera' },
+                'guarani': { circ: 2, deptoNorm: 'obera' }, // Municipio Guaraní
+                'los helechos': { circ: 2, deptoNorm: 'obera' },
+                'panambi': { circ: 2, deptoNorm: 'obera' },
+                'campo ramon': { circ: 2, deptoNorm: 'obera' },
+                'campo viera': { circ: 2, deptoNorm: 'obera' },
+                'colonia alberdi': { circ: 2, deptoNorm: 'obera' },
+                'general alvear': { circ: 2, deptoNorm: 'obera' },
+                'martires': { circ: 2, deptoNorm: 'obera' },
+                'campo grande': { circ: 2, deptoNorm: 'cainguas' },
+                'aristobulo del valle': { circ: 2, deptoNorm: 'cainguas' },
+                'salto encantado': { circ: 2, deptoNorm: 'cainguas' },
+                'colonia aurora': { circ: 2, deptoNorm: '25demayo' },
+                '25 de mayo': { circ: 2, deptoNorm: '25demayo' },
+                'alba posse': { circ: 2, deptoNorm: '25demayo' },
+                'leandro n alem': { circ: 2, deptoNorm: 'leandronalem' },
+                'alem': { circ: 2, deptoNorm: 'leandronalem' },
+                'bonpland': { circ: 2, deptoNorm: 'leandronalem' },
+                'caa yari': { circ: 2, deptoNorm: 'leandronalem' },
+                'almafuerte': { circ: 2, deptoNorm: 'leandronalem' },
+                'gobernador lopez': { circ: 2, deptoNorm: 'leandronalem' },
+                'dos arroyos': { circ: 2, deptoNorm: 'leandronalem' },
+                'cerro azul': { circ: 2, deptoNorm: 'leandronalem' },
+                'arroyo del medio': { circ: 2, deptoNorm: 'leandronalem' },
+                'olegario v andrade': { circ: 2, deptoNorm: 'leandronalem' },
+                'san javier': { circ: 2, deptoNorm: 'sanjavier' },
+                'florentino ameghino': { circ: 2, deptoNorm: 'sanjavier' },
+                'itacaruare': { circ: 2, deptoNorm: 'sanjavier' },
+                'mojon grande': { circ: 2, deptoNorm: 'sanjavier' },
+
+                // 3ª Circunscripción
+                'eldorado': { circ: 3, deptoNorm: 'eldorado' },
+                '9 de julio': { circ: 3, deptoNorm: 'eldorado' },
+                'santiago de liniers': { circ: 3, deptoNorm: 'eldorado' },
+                'colonia victoria': { circ: 3, deptoNorm: 'eldorado' },
+                'colonia delicia': { circ: 3, deptoNorm: 'eldorado' },
+                'puerto iguazu': { circ: 3, deptoNorm: 'iguazu' },
+                'iguazu': { circ: 3, deptoNorm: 'iguazu' },
+                'colonia wanda': { circ: 3, deptoNorm: 'iguazu' },
+                'wanda': { circ: 3, deptoNorm: 'iguazu' },
+                'puerto libertad': { circ: 3, deptoNorm: 'iguazu' },
+                'puerto esperanza': { circ: 3, deptoNorm: 'iguazu' },
+                'comandante andresito': { circ: 3, deptoNorm: 'gralmanuelbelgrano' },
+                'andres guacurari': { circ: 3, deptoNorm: 'gralmanuelbelgrano' },
+                'san antonio': { circ: 3, deptoNorm: 'gralmanuelbelgrano' },
+                'montecarlo': { circ: 3, deptoNorm: 'montecarlo' },
+                'caraguatay': { circ: 3, deptoNorm: 'montecarlo' },
+                'puerto piray': { circ: 3, deptoNorm: 'montecarlo' },
+
+                // 4ª Circunscripción
+                'puerto rico': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'capiovi': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'garuhape': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'el alcazar': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'puerto leoni': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'puerto leon': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'ruiz de montoya': { circ: 4, deptoNorm: 'libertadorgralsanmartin' },
+                'jardin america': { circ: 4, deptoNorm: 'sanignacio' },
+                'colonia polana': { circ: 4, deptoNorm: 'sanignacio' },
+                'general urquiza': { circ: 4, deptoNorm: 'sanignacio' },
+                'hipolito irigoyen': { circ: 4, deptoNorm: 'sanignacio' },
+                'gobernador roca': { circ: 4, deptoNorm: 'sanignacio' },
+                'santo pipo': { circ: 4, deptoNorm: 'sanignacio' },
+                'corpus christi': { circ: 4, deptoNorm: 'sanignacio' },
+                'corpus': { circ: 4, deptoNorm: 'sanignacio' },
+                'san ignacio': { circ: 4, deptoNorm: 'sanignacio' },
+
+                // 5ª Circunscripción
+                'san vicente': { circ: 5, deptoNorm: 'guarani' },
+                'el soberbio': { circ: 5, deptoNorm: 'guarani' },
+                'fracran': { circ: 5, deptoNorm: 'guarani' }, // Nuevo municipio
+                'bernardo de irigoyen': { circ: 5, deptoNorm: 'gralmanuelbelgrano' },
+                'dos de mayo': { circ: 5, deptoNorm: 'cainguas' },
+                'pozo azul': { circ: 5, deptoNorm: 'sanpedro' },
+                'san pedro': { circ: 5, deptoNorm: 'sanpedro' }
+            };
+
+            const COLORS = {
+                1: '#4caf50', 2: '#2196f3', 3: '#ff9800', 4: '#9c27b0', 5: '#f44336'
+            };
+
+            const CABECERAS = {
+                1: 'Posadas', 2: 'Oberá', 3: 'Eldorado', 4: 'Puerto Rico', 5: 'San Vicente'
+            };
+
+            const NOMBRES_CIRC = {
+                1: 'Primera Circunscripción', 2: 'Segunda Circunscripción', 3: 'Tercera Circunscripción', 4: 'Cuarta Circunscripción', 5: 'Quinta Circunscripción'
+            };
+
+            // Inicializar mapa
+            const map = L.map('map').setView([-27.0, -55.0], 7.5);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+                maxZoom: 19,
+            }).addTo(map);
+
+            // CLIC FUERA DEL MAPA: Volver al inicio
+            map.on('click', function() {
+                if (boundsGenerales) {
+                    map.fitBounds(boundsGenerales, { padding: [30, 30] });
+                    map.closePopup();
+                }
+            });
+
+            // Lógica de búsqueda
+            const inputBusqueda = document.getElementById('input-busqueda');
+            const btnBuscar = document.getElementById('btn-buscar');
+            const divResultado = document.getElementById('search-result');
+
+            function realizarBusqueda() {
+                const query = inputBusqueda.value.toLowerCase().trim();
+                divResultado.style.display = 'none';
+
+                if (!query) return;
+
+                // Buscar coincidencias en la DB de ciudades
+                let encontrado = null;
+                for (const [ciudad, datos] of Object.entries(CIUDADES_DB)) {
+                    if (ciudad.includes(query) || normalizarNombre(ciudad).includes(normalizarNombre(query))) {
+                        encontrado = { nombre: ciudad, ...datos };
+                        break;
+                    }
+                }
+
+                // Si no se encontró en ciudades, buscar en departamentos
+                if (!encontrado) {
+                    for (const [depto, circ] of Object.entries(CIRCUNSCRIPCIONES)) {
+                        if (depto.includes(normalizarNombre(query))) {
+                            encontrado = { nombre: depto, circ: circ, deptoNorm: depto };
+                            break;
+                        }
+                    }
+                }
+
+                if (encontrado) {
+                    divResultado.innerHTML = `<strong>${encontrado.nombre.toUpperCase()}</strong> pertenece a la <strong>${encontrado.circ}ª Circunscripción</strong>.`;
+                    divResultado.style.display = 'block';
+                    
+                    // Simular clic en el departamento para centrarlo y mostrar detalles
+                    if (capasPorDepartamento[encontrado.deptoNorm]) {
+                        capasPorDepartamento[encontrado.deptoNorm].fire('click');
+                    }
+                } else {
+                    divResultado.innerHTML = `No se encontraron resultados para "${query}". Intenta buscar por departamento o ciudad principal.`;
+                    divResultado.style.display = 'block';
+                }
+
+                setTimeout(() => { divResultado.style.display = 'none'; }, 6000);
+            }
+
+            btnBuscar.addEventListener('click', realizarBusqueda);
+            inputBusqueda.addEventListener('keypress', (e) => { if (e.key === 'Enter') realizarBusqueda(); });
+
+            // Leyenda
+            const legendControl = L.control({ position: 'bottomright' });
+            legendControl.onAdd = function() {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = `
+                    <h4>⚖️ Circunscripciones</h4>
+                    <div class="legend-item"><span class="legend-color" style="background:${COLORS[1]};"></span><span>1ª – Posadas</span></div>
+                    <div class="legend-item"><span class="legend-color" style="background:${COLORS[2]};"></span><span>2ª – Oberá</span></div>
+                    <div class="legend-item"><span class="legend-color" style="background:${COLORS[3]};"></span><span>3ª – Eldorado</span></div>
+                    <div class="legend-item"><span class="legend-color" style="background:${COLORS[4]};"></span><span>4ª – Puerto Rico</span></div>
+                    <div class="legend-item"><span class="legend-color circle" style="background:${COLORS[5]};"></span><span>5ª – San Vicente</span></div>
+                `;
+                return div;
+            };
+            legendControl.addTo(map);
+
+            // Generar HTML del Popup (Detalles)
+            function getInfoHTML(feature) {
+                const nombre = feature.properties.departamento || 'Sin nombre';
+                const circ = feature.properties.circunscripcion;
+                const tieneQuinta = feature.properties.tieneQuinta;
+
+                if (!circ) return `<strong>${nombre}</strong>`;
+
+                const nombreCirc = NOMBRES_CIRC[circ];
+                let html = `<strong>Departamento ${nombre}</strong>`;
+                html += `<br><span class="circ">${circ}ª ${nombreCirc}</span>`;
+                html += `<br>🏛️ Cabecera: <strong>${CABECERAS[circ]}</strong>`;
+
+                // Notas especiales para San Ignacio
+                if (normalizarNombre(nombre) === 'sanignacio') {
+                    html += `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed #666; font-size:0.85rem; color:#e0e0e0;">`;
+                    html += `<span style="color:#ffd54f; font-weight:bold;">4ª Circunscripción incluye:</span><br>`;
+                    html += `San Ignacio, Jardín América, Gobernador Roca, Santo Pipó, Corpus Christi, Puerto Rico (Cabecera), Capioví y Puerto Leon.<br><br>`;
+                    html += `<span style="color:#ff8a80; font-weight:bold;">1ª Circunscripción incluye:</span><br>`;
+                    html += `Santa Ana y Loreto.`;
+                    html += `</div>`;
+                }
+
+                if (tieneQuinta) {
+                    html += `<br><span class="quinta" style="display:block; margin-top:8px;">● Incluye zonas de la 5ª Circ. (San Vicente)</span>`;
+                }
+
+                return html;
+            }
+
+            // Cargar datos
+            fetch('https://raw.githubusercontent.com/mgaitan/departamentos_argentina/master/departamentos-argentina.topojson')
+                .then(r => r.json())
+                .then(topology => {
+                    const geojson = topojson.feature(topology, topology.objects['departamentos-argentina']);
+                    const misionesFeatures = geojson.features.filter(f => f.properties && f.properties.provincia === 'MISIONES');
+
+                    misionesFeatures.forEach(feature => {
+                        const nombreNorm = normalizarNombre(feature.properties.departamento);
+                        feature.properties.circunscripcion = CIRCUNSCRIPCIONES[nombreNorm] || null;
+                        feature.properties.tieneQuinta = DEPARTAMENTOS_QUINTA.includes(nombreNorm);
+                    });
+
+                    function getStyle(feature) {
+                        return {
+                            fillColor: feature.properties.circunscripcion ? COLORS[feature.properties.circunscripcion] : '#ccc',
+                            fillOpacity: 0.7, weight: 1.8, opacity: 0.9, color: '#ffffff',
+                        };
+                    }
+
+                    const geojsonLayer = L.geoJSON(misionesFeatures, {
+                        style: getStyle,
+                        onEachFeature: function(feature, layer) {
+                            const nombreNorm = normalizarNombre(feature.properties.departamento);
+                            capasPorDepartamento[nombreNorm] = layer; // Guardar referencia para el buscador
+
+                            layer.on('mouseover', function(e) {
+                                e.target.setStyle({ weight: 3, color: '#ffff00', fillOpacity: 0.85 });
+                                e.target.bringToFront();
+                            });
+
+                            layer.on('mouseout', function(e) {
+                                e.target.setStyle(getStyle(feature));
+                            });
+
+                            // Click: Centrar y mostrar popup (Se detiene la propagación para que no dispare el clic del mapa)
+                            layer.on('click', function(e) {
+                                L.DomEvent.stopPropagation(e); 
+                                
+                                const target = e.target;
+                                const bounds = target.getBounds();
+                                if (bounds.isValid()) {
+                                    map.fitBounds(bounds, { padding: [40, 40] });
+                                }
+                                target.bindPopup(getInfoHTML(feature), {
+                                    className: 'custom-popup',
+                                    offset: [0, -10]
+                                }).openPopup();
+                            });
+                        }
+                    }).addTo(map);
+
+                    boundsGenerales = geojsonLayer.getBounds();
+                    if (boundsGenerales.isValid()) {
+                        map.fitBounds(boundsGenerales, { padding: [30, 30] });
+                    }
+
+                    // Marcador de San Vicente
+                    const markerQuinta = L.marker([-26.9926, -54.4911], {
+                        icon: L.divIcon({
+                            className: 'custom-marker',
+                            html: '<div style="background:#f44336; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 2px 5px rgba(0,0,0,0.5);"></div>',
+                            iconSize: [20, 20]
+                        })
+                    }).addTo(map);
+
+                    markerQuinta.on('click', function(e) {
+                        L.DomEvent.stopPropagation(e);
+                        this.bindPopup(`
+                            <div class="custom-popup" style="color:black;">
+                                <strong>San Vicente</strong><br>
+                                Cabecera de la <strong>5ª Circunscripción</strong>
+                            </div>
+                        `).openPopup();
+                    });
+
+                })
+                .catch(error => console.error('❌ Error:', error));
+
+        })();
+    </script>
+</body>
+</html>

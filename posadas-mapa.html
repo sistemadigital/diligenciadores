@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mapa Judicial - Defensorías de Posadas</title>
+
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .map-container {
+            width: 100%;
+            max-width: 1200px;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+
+        .map-header {
+            background: linear-gradient(135deg, #2c3e50, #3498db);
+            color: white;
+            padding: 18px 28px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .map-header h1 {
+            font-size: 1.6rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .map-header h1 span {
+            font-weight: 300;
+            opacity: 0.8;
+            font-size: 1.2rem;
+        }
+
+        /* Buscador */
+        .search-container {
+            display: flex;
+            gap: 8px;
+            position: relative;
+        }
+
+        .search-container input {
+            padding: 8px 14px;
+            border-radius: 20px;
+            border: none;
+            outline: none;
+            width: 280px;
+            font-size: 0.95rem;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .search-container button {
+            background: #e67e22;
+            color: white;
+            border: none;
+            border-radius: 20px;
+            padding: 8px 16px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .search-container button:hover {
+            background: #d35400;
+        }
+
+        #search-result {
+            position: absolute;
+            top: 110%;
+            left: 0;
+            right: 0;
+            background: white;
+            color: #333;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            font-size: 0.9rem;
+            display: none;
+            z-index: 1000;
+        }
+
+        #map {
+            width: 100%;
+            height: 650px;
+            background: #e5e9f0;
+            cursor: default;
+        }
+
+        .map-footer {
+            padding: 14px 28px;
+            background: #f8f9fc;
+            border-top: 1px solid #e9ecf0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: #4a5568;
+        }
+
+        .map-footer a {
+            color: #3498db;
+            text-decoration: none;
+        }
+
+        .map-footer a:hover {
+            text-decoration: underline;
+        }
+
+        /* Popup personalizado */
+        .custom-popup .leaflet-popup-content-wrapper {
+            background: rgba(44, 62, 80, 0.95) !important;
+            color: white !important;
+            border-radius: 10px !important;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+        }
+        .custom-popup .leaflet-popup-tip {
+            background: rgba(44, 62, 80, 0.95) !important;
+        }
+        .custom-popup .leaflet-popup-content {
+            margin: 14px 16px;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            min-width: 220px;
+        }
+        .custom-popup strong {
+            font-size: 1.2rem;
+            display: block;
+            margin-bottom: 4px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+            padding-bottom: 4px;
+        }
+        .custom-popup .zone {
+            color: #f1c40f;
+            font-weight: 600;
+            margin-top: 5px;
+            display: block;
+        }
+
+        /* Leyenda personalizada */
+        .legend {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+            line-height: 1.6;
+            font-size: 0.9rem;
+            min-width: 200px;
+        }
+
+        .legend h4 {
+            margin: 0 0 6px 0;
+            font-size: 0.95rem;
+            color: #2c3e50;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 4px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 6px 0;
+            cursor: pointer;
+        }
+        
+        .legend-item:hover {
+            opacity: 0.8;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            border: 1px solid rgba(0, 0, 0, 0.2);
+            flex-shrink: 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 700px) {
+            .map-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .search-container {
+                width: 100%;
+            }
+            .search-container input {
+                flex-grow: 1;
+            }
+            #map {
+                height: 450px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="map-container">
+        <div class="map-header">
+            <h1>⚖️ Posadas <span>· Defensorías Civiles</span></h1>
+            
+            <div class="search-container">
+                <input type="text" id="input-busqueda" placeholder="Buscar barrio (ej: Aguacates, Centro, Bicentenario)...">
+                <button id="btn-buscar">Buscar</button>
+                <div id="search-result"></div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div class="map-footer">
+            <span>Jurisdicciones ilustrativas de las Defensorías Civiles y de Familia.</span>
+            <span>Mapa: <a href="https://leafletjs.com" target="_blank">Leaflet</a> · <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a></span>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            let boundsGenerales = null;
+            const capasPorDefensoria = {};
+
+            function normalizarNombre(nombre) {
+                if (!nombre) return '';
+                return nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+            }
+
+            // Colores por jurisdicción
+            const COLORS = {
+                'justicia': '#3498db',   // Azul
+                'cabello': '#2ecc71',    // Verde
+                'mini': '#e67e22',       // Naranja
+                'guazu': '#9b59b6'       // Morado
+            };
+
+            const DEFENSORIAS_GEOJSON = {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": { 
+                            "id": "justicia", 
+                            "nombre": "Palacio de Justicia", 
+                            "sede": "Av. Santa Catalina 1735",
+                            "zona": "Centro, Este y Norte de Posadas" 
+                        },
+                        "geometry": { 
+                            "type": "Polygon", 
+                            "coordinates": [[ [-55.915, -27.355], [-55.875, -27.355], [-55.875, -27.400], [-55.915, -27.400], [-55.915, -27.355] ]] 
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { 
+                            "id": "cabello", 
+                            "nombre": "Defensoría Villa Cabello", 
+                            "sede": "Chacra 149 / Av. Tambor de Tacuarí",
+                            "zona": "Oeste y Noroeste de Posadas" 
+                        },
+                        "geometry": { 
+                            "type": "Polygon", 
+                            "coordinates": [[ [-55.960, -27.355], [-55.915, -27.355], [-55.915, -27.385], [-55.960, -27.385], [-55.960, -27.355] ]] 
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { 
+                            "id": "mini", 
+                            "nombre": "Defensoría Itaembé Miní", 
+                            "sede": "Av. 147 y Calle 156",
+                            "zona": "Sur y Sureste de Posadas" 
+                        },
+                        "geometry": { 
+                            "type": "Polygon", 
+                            "coordinates": [[ [-55.955, -27.385], [-55.900, -27.385], [-55.900, -27.445], [-55.955, -27.445], [-55.955, -27.385] ]] 
+                        }
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": { 
+                            "id": "guazu", 
+                            "nombre": "Defensoría Itaembé Guazú", 
+                            "sede": "Sector 5, Itaembé Guazú",
+                            "zona": "Suroeste de Posadas y Aeropuerto" 
+                        },
+                        "geometry": { 
+                            "type": "Polygon", 
+                            "coordinates": [[ [-56.010, -27.370], [-55.960, -27.370], [-55.955, -27.420], [-56.010, -27.420], [-56.010, -27.370] ]] 
+                        }
+                    }
+                ]
+            };
+
+            const BARRIOS_DB = {
+                'centro': 'justicia', 'villa sarita': 'justicia', 'aguacates': 'justicia', 'bajada vieja': 'justicia', 
+                'el brete': 'justicia', 'villa blosset': 'justicia', 'palomar': 'justicia', 'rocamora': 'justicia',
+                'villa cabello': 'cabello', 'chacra 149': 'cabello', 'chacra 150': 'cabello', 'chacra 148': 'cabello', 
+                'eva peron': 'cabello', 'santa rita': 'cabello', 'villa urquiza': 'cabello', 'yrigoyen': 'cabello',
+                'itaembe mini': 'mini', 'bicentenario': 'mini', '170 viviendas': 'mini', 'san isidro': 'mini', 
+                'aeroclub': 'mini', 'prosol': 'mini', 'terrazas': 'mini', 'las dolores': 'mini',
+                'itaembe guazu': 'guazu', '508 viviendas': 'guazu', 'cruz del sur': 'guazu', 'nemesio parma': 'guazu',
+                '740 hectareas': 'guazu', 'aeropuerto': 'guazu'
+            };
+
+            const map = L.map('map').setView([-27.380, -55.920], 12);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap',
+                maxZoom: 19,
+            }).addTo(map);
+
+            // Funciones de estilo
+            function getEstiloOculto() {
+                return { weight: 0, opacity: 0, fillOpacity: 0 };
+            }
+
+            function getEstiloVisible(id) {
+                return {
+                    fillColor: COLORS[id],
+                    fillOpacity: 0.5, 
+                    weight: 2, 
+                    opacity: 1, 
+                    color: '#ffffff',
+                    dashArray: '3'
+                };
+            }
+
+            // Ocultar zonas y resetear vista al hacer clic fuera
+            map.on('click', function() {
+                Object.values(capasPorDefensoria).forEach(layer => {
+                    layer.setStyle(getEstiloOculto());
+                });
+
+                if (boundsGenerales) {
+                    map.fitBounds(boundsGenerales, { padding: [20, 20] });
+                    map.closePopup();
+                }
+            });
+
+            const inputBusqueda = document.getElementById('input-busqueda');
+            const btnBuscar = document.getElementById('btn-buscar');
+            const divResultado = document.getElementById('search-result');
+
+            function realizarBusqueda() {
+                const query = normalizarNombre(inputBusqueda.value);
+                divResultado.style.display = 'none';
+
+                if (!query) return;
+
+                let encontradoId = null;
+                let barrioEncontrado = null;
+
+                for (const [barrio, idDef] of Object.entries(BARRIOS_DB)) {
+                    if (barrio.includes(query) || query.includes(barrio)) {
+                        encontradoId = idDef;
+                        barrioEncontrado = barrio;
+                        break;
+                    }
+                }
+
+                if (encontradoId && capasPorDefensoria[encontradoId]) {
+                    const featureData = DEFENSORIAS_GEOJSON.features.find(f => f.properties.id === encontradoId);
+                    const capaEncontrada = capasPorDefensoria[encontradoId];
+
+                    // Mensaje de éxito
+                    divResultado.innerHTML = `El barrio <strong>${barrioEncontrado.toUpperCase()}</strong> corresponde al <strong>${featureData.properties.nombre}</strong>.`;
+                    divResultado.style.display = 'block';
+                    
+                    // Ocultar todas las capas primero
+                    Object.values(capasPorDefensoria).forEach(layer => {
+                        layer.setStyle(getEstiloOculto());
+                    });
+
+                    // Mostrar únicamente la capa correspondiente al barrio
+                    capaEncontrada.setStyle(getEstiloVisible(encontradoId));
+                    
+                    // Centrar y abrir popup
+                    const bounds = capaEncontrada.getBounds();
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                    
+                    capaEncontrada.bindPopup(getInfoHTML(featureData.properties), {
+                        className: 'custom-popup',
+                        offset: [0, -10]
+                    }).openPopup(bounds.getCenter());
+
+                } else {
+                    divResultado.innerHTML = `No se encontraron resultados para "${inputBusqueda.value}". Intente con otro barrio conocido.`;
+                    divResultado.style.display = 'block';
+                }
+
+                setTimeout(() => { divResultado.style.display = 'none'; }, 7000);
+            }
+
+            btnBuscar.addEventListener('click', realizarBusqueda);
+            inputBusqueda.addEventListener('keypress', (e) => { if (e.key === 'Enter') realizarBusqueda(); });
+
+            function getInfoHTML(properties) {
+                return `
+                    <strong>${properties.nombre}</strong>
+                    📍 Sede: ${properties.sede}<br>
+                    <span class="zone">Área de Cobertura:</span>
+                    ${properties.zona}
+                `;
+            }
+
+            const geojsonLayer = L.geoJSON(DEFENSORIAS_GEOJSON, {
+                style: getEstiloOculto, // Inician ocultos
+                onEachFeature: function(feature, layer) {
+                    capasPorDefensoria[feature.properties.id] = layer;
+                }
+            }).addTo(map);
+
+            boundsGenerales = geojsonLayer.getBounds();
+            map.fitBounds(boundsGenerales, { padding: [30, 30] });
+
+            const legendControl = L.control({ position: 'bottomright' });
+            legendControl.onAdd = function() {
+                const div = L.DomUtil.create('div', 'legend');
+                div.innerHTML = `
+                    <h4>🏛️ Jurisdicciones</h4>
+                    <div class="legend-item" onclick="document.getElementById('input-busqueda').value='centro'; document.getElementById('btn-buscar').click();">
+                        <span class="legend-color" style="background:${COLORS['justicia']};"></span>
+                        <span>Palacio de Justicia</span>
+                    </div>
+                    <div class="legend-item" onclick="document.getElementById('input-busqueda').value='villa cabello'; document.getElementById('btn-buscar').click();">
+                        <span class="legend-color" style="background:${COLORS['cabello']};"></span>
+                        <span>Villa Cabello</span>
+                    </div>
+                    <div class="legend-item" onclick="document.getElementById('input-busqueda').value='itaembe mini'; document.getElementById('btn-buscar').click();">
+                        <span class="legend-color" style="background:${COLORS['mini']};"></span>
+                        <span>Itaembé Miní</span>
+                    </div>
+                    <div class="legend-item" onclick="document.getElementById('input-busqueda').value='itaembe guazu'; document.getElementById('btn-buscar').click();">
+                        <span class="legend-color" style="background:${COLORS['guazu']};"></span>
+                        <span>Itaembé Guazú</span>
+                    </div>
+                `;
+                return div;
+            };
+            legendControl.addTo(map);
+
+        })();
+    </script>
+</body>
+</html>
